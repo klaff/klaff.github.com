@@ -45,17 +45,17 @@ We can identify five different states for the system:
 """
 
 # ╔═╡ 3d2c5c40-4c89-11eb-1524-bfe20b639b35
-Resource("https://klaff.github.io/friction_sm2.png")
+Resource("https://klaff.github.io/state_machine_updated.png")
 
 # ╔═╡ 2d67a5d0-4c89-11eb-0c44-b10b43eb1cdd
 md"""
-There are ten transitions between states, organized in eight lines:
+There are twelve transitions between states, organized in eight lines:
 - `LEFT_STOP` to `SLIDING_RIGHT` if force (on the mass) is greater than static friction
-- `SLIDING_RIGHT` to `STOPPED` if speed drops to zero
+- `SLIDING_RIGHT` to `STOPPED` or`SLIDING_LEFT` (depending on force) if speed drops to zero
 - `SLIDING_RIGHT` to `RIGHT_STOP` or `SLIDING_LEFT` (depending on COR) if position reaches right stop
 - `STOPPED` to `SLIDING_RIGHT` if force is greater than static friction
 - `STOPPED` to `SLIDING_LEFT` if force is greater than static friction (but in the other direction)
-- `SLIDING_LEFT` to `STOPPED` if speed drops to zero
+- `SLIDING_LEFT` to `STOPPED` or `SLIDING_RIGHT` (depending on force) if speed drops to zero
 - `SLIDING_LEFT` to `LEFT_STOP` or `SLIDING_RIGHT` if position reaches left stop
 - `RIGHT_STOP` to `SLIDING_LEFT` if force is greater than static friction (but to the left)
 """
@@ -96,44 +96,6 @@ The tests we use to move from one state to the other are defined in `FricSMCondx
 md"""
 The corresponding actions are defined in `FricSMaffect!`
 """
-
-# ╔═╡ af3c5bc2-4c82-11eb-3058-d7a457ae6083
-function FricSMaffect!(integ, idx)
-	@unpack_Params integ.p
-	print("affect,",integ.t,",",idx)
-	if     idx==1 
-		integ.p.state = SLIDING_RIGHT
-	elseif idx==2
-		integ.p.state = STOPPED
-		integ.u[1] = 0.0
-	elseif idx==3
-		if cor==0.0
-			integ.p.state = RIGHT_STOP
-			integ.u[1] = 0.0
-		else
-			integ.p.state = SLIDING_LEFT
-			integ.u[1] = -cor*integ.u[1]
-		end
-	elseif idx==4
-		integ.p.state = SLIDING_RIGHT
-	elseif idx==5
-		integ.p.state = SLIDING_LEFT
-	elseif idx==6 
-		integ.p.state = STOPPED
-		integ.u[1] = 0.0
-	elseif idx==7
-		if cor==0.0
-			integ.p.state = LEFT_STOP
-			integ.u[1] = 0.0
-		else
-			integ.p.state = SLIDING_RIGHT
-			integ.u[1] = -cor*integ.u[1]
-		end
-	elseif idx==8 
-		integ.p.state = SLIDING_LEFT
-	end
-end
-
 
 # ╔═╡ 875db7a0-4bb2-11eb-2338-b5c75b1ff3c8
 md"""
@@ -181,6 +143,53 @@ function FricSMCondx(out, u, t, integ)
 	out[6] = (state==SLIDING_LEFT)*v
 	out[7] = (state==SLIDING_LEFT)*(-(x-xls))
 	out[8] = (state==RIGHT_STOP)*(-(force_ext(t)+M*ga*μs))
+end
+
+
+# ╔═╡ af3c5bc2-4c82-11eb-3058-d7a457ae6083
+function FricSMaffect!(integ, idx)
+	@unpack_Params integ.p
+	v,x = integ.u
+	t = integ.t
+	if     idx==1 
+		integ.p.state = SLIDING_RIGHT
+	elseif idx==2
+		if force_ext(t) < -M*ga*μk
+			integ.p.state = SLIDING_LEFT
+		else
+			integ.p.state = STOPPED
+			integ.u[1] = 0.0
+		end
+	elseif idx==3
+		if cor==0.0
+			integ.p.state = RIGHT_STOP
+			integ.u[1] = 0.0
+		else
+			integ.p.state = SLIDING_LEFT
+			integ.u[1] = -cor*integ.u[1]
+		end
+	elseif idx==4
+		integ.p.state = SLIDING_RIGHT
+	elseif idx==5
+		integ.p.state = SLIDING_LEFT
+	elseif idx==6
+		if force_ext(t) > M*ga*μk
+			integ.p.state = SLIDING_RIGHT
+		else
+			integ.p.state = STOPPED
+			integ.u[1] = 0.0
+		end
+	elseif idx==7
+		if cor==0.0
+			integ.p.state = LEFT_STOP
+			integ.u[1] = 0.0
+		else
+			integ.p.state = SLIDING_RIGHT
+			integ.u[1] = -cor*integ.u[1]
+		end
+	elseif idx==8 
+		integ.p.state = SLIDING_LEFT
+	end
 end
 
 
@@ -247,7 +256,7 @@ This [Julia language](https://julialang.org/) document was prepared using the [P
 
 David Klaffenbach, 2021-01-01.
 
-Revised 2021-01-03.
+Revised 2021-01-05.
 """
 
 # ╔═╡ Cell order:
